@@ -27,7 +27,7 @@ version differs. Deluge 1.x and pure v2 (`btmh` only) magnets are not supported.
    On Windows, use `.build-venv\Scripts\python.exe` for the last two commands.
    `bdist_egg` is intentional: Deluge loads plugins as eggs rather than wheels.
 
-3. Copy `dist/TorrentAPI-1.0.0-py3.X.egg` into the **daemon's** config `plugins/`
+3. Copy `dist/TorrentAPI-1.0.1-py3.X.egg` into the **daemon's** config `plugins/`
    directory. On Linux the config is often `~/.config/deluge/`; for a service it is
    the service account's directory, or the directory passed to `deluged -c`.
    In common Docker setups it is `/config/plugins/` inside the container.
