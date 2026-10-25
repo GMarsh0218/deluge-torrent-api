@@ -144,6 +144,7 @@ curl -X PATCH "$TORRENT_API_URL/v1/torrents/$TORRENT_ID" \
 | GET | `/v1/torrents/{id}` | 200, status object |
 | PATCH | `/v1/torrents/{id}` | 200, updated status |
 | POST | `/v1/torrents/{id}/move` | 202, move accepted; 200 if already there |
+| POST | `/v1/torrents/{id}/remove` | 200, torrent removed and downloaded files kept |
 
 POST add accepts `magnet` (required), `download_location`, `move_completed_path`,
 and `add_paused` (boolean). Omitted values use Deluge defaults. Supplying
@@ -169,6 +170,18 @@ A move is rejected while another move is active or the torrent is incomplete.
 Existing target file behavior follows Deluge/libtorrent's `dont_replace` mode;
 use a fresh destination to avoid collisions. Moves preserve the torrent and
 seeding; the API does not manually rename files behind Deluge's back.
+
+Remove a torrent with `POST /v1/torrents/{id}/remove`, an empty JSON object
+`{}`, and the usual bearer token. This stops downloading/seeding and removes
+the torrent from Deluge while preserving its downloaded files, including partial
+downloads. It always calls Deluge with `remove_data=False`; no file-deletion
+option is exposed, and all request fields are rejected. Removing a missing
+torrent returns 404; an active storage move or daemon rejection returns 409.
+A successful response is:
+
+```json
+{"torrent_id":"<id>","status":"removed","files_kept":true}
+```
 
 Errors have the shape:
 
