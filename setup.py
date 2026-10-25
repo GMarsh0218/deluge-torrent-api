@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(
-    name='TorrentAPI', version='1.0.0',
+    name='TorrentAPI', version='1.0.1',
     description='Authenticated HTTP torrent API for Deluge 2',
     author='TorrentAPI contributors', license='MIT',
     packages=find_packages(), python_requires='>=3.8',
