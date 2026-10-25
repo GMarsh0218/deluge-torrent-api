@@ -125,6 +125,24 @@ class TorrentService:
                 if method == 'PATCH':
                     return self.configure_completion(torrent_id, body)
                 raise APIError(405, 'method_not_allowed', 'Use GET or PATCH.')
+            if parts[3] == 'remove':
+                if method != 'POST':
+                    raise APIError(405, 'method_not_allowed', 'Use POST.')
+                reject_unknown(body, [])
+                status = self.status(torrent_id)
+                if status['moving']:
+                    raise APIError(409, 'move_in_progress', 'Wait for the storage move to finish.')
+                # Deliberately expose no file-deletion option.
+                d = maybeDeferred(self.core.remove_torrent, torrent_id, remove_data=False)
+
+                def removed(success):
+                    if not success:
+                        raise APIError(409, 'remove_rejected', 'Deluge did not remove the torrent.')
+                    self.pending_moves.pop(torrent_id, None)
+                    return 200, {'torrent_id': torrent_id, 'status': 'removed', 'files_kept': True}
+
+                d.addCallback(removed)
+                return d
             if parts[3] == 'move':
                 if method != 'POST':
                     raise APIError(405, 'method_not_allowed', 'Use POST.')

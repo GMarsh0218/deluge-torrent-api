@@ -149,3 +149,54 @@ def test_move_alert_clears_pending_and_ignores_stale_destination(app):
     app[0].service.storage_move_finished(alert)
     status = app[0].service.status(ID)
     assert status['moving'] is False and status['moving_to'] is None
+
+
+def test_remove_keeps_files(app):
+    app[3].remove_torrent.return_value = True
+    r, data = call(app[0], 'POST', '/v1/torrents/' + ID + '/remove', {})
+    assert r.responseCode == 200
+    assert data() == {'torrent_id': ID, 'status': 'removed', 'files_kept': True}
+    app[3].remove_torrent.assert_called_once_with(ID, remove_data=False)
+
+
+@pytest.mark.parametrize('body', [{'remove_data': True}, {'remove_data': False}, {'deleteFiles': True}])
+def test_remove_rejects_all_options(app, body):
+    r, _ = call(app[0], 'POST', '/v1/torrents/' + ID + '/remove', body)
+    assert r.responseCode == 400
+    app[3].remove_torrent.assert_not_called()
+
+
+def test_remove_rejects_missing_moving_and_wrong_method(app):
+    for method, torrent_id, state, expected in [('GET', ID, 'Seeding', 405),
+            ('POST', 'b' * 40, 'Seeding', 404), ('POST', ID, 'Moving', 409)]:
+        app[2]['state'] = state
+        r, _ = call(app[0], method, '/v1/torrents/' + torrent_id + '/remove', {})
+        assert r.responseCode == expected
+    app[3].remove_torrent.assert_not_called()
+
+
+def test_remove_waits_for_daemon_and_handles_rejection(app):
+    pending = Deferred()
+    app[3].remove_torrent.return_value = pending
+    r, data = call(app[0], 'POST', '/v1/torrents/' + ID + '/remove', {})
+    assert not r.finished
+    pending.callback(False)
+    assert r.finished and r.responseCode == 409
+    assert data()['error']['code'] == 'remove_rejected'
+
+
+@pytest.mark.parametrize('auth', [None, 'wrong'])
+def test_remove_requires_auth(app, auth):
+    r, _ = call(app[0], 'POST', '/v1/torrents/' + ID + '/remove', {}, auth=auth)
+    assert r.responseCode == 401
+    app[3].remove_torrent.assert_not_called()
+
+
+def test_remove_confirms_deferred_success(app):
+    pending = Deferred()
+    app[3].remove_torrent.return_value = pending
+    r, data = call(app[0], 'POST', '/v1/torrents/' + ID + '/remove', {})
+    assert not r.finished
+    pending.callback(True)
+    assert r.finished and r.responseCode == 200 and data()['files_kept'] is True
+    app[3].remove_torrent.assert_called_once_with(ID, remove_data=False)
